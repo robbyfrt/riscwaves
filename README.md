@@ -38,4 +38,8 @@ python3 -m http.server 8080 --bind 0.0.0.0
 - Re-run `wasm-pack build --target web --out-dir www/pkg` after changing Rust sources.
 - For development iteration, you can keep the Python server running and refresh the browser after rebuilding.
 
-Happy hacking!
+### Notes
+
+- 10000 particles, 7ms 
+- 50000 particles, 27ms (16ms on iPad)
+- 100000 particles, 45ms (25ms on iPad)

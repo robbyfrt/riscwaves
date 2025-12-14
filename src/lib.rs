@@ -1,8 +1,10 @@
 use wasm_bindgen::prelude::*;
 use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
+// overlay text is drawn directly with the 2d canvas context
 
 static mut FRAME_COUNT: u32 = 0;
 static mut PARTICLES: Vec<Particle> = Vec::new();
+static mut LAST_TIME_MS: f64 = 0.0;
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
 const MASS_RANGE: [f32; 2] = [1.0, 4.0];
@@ -130,7 +132,7 @@ pub fn main() -> Result<(), JsValue> {
 fn initialize_custom_particles() {
     unsafe {
         // Example: Create 50 random particles
-        for _ in 0..100 {
+        for _ in 0..1000 {
             PARTICLES.push(Particle::new_random());
         }
         log::info!("Initialized {} particles", PARTICLES.len());
@@ -142,7 +144,7 @@ fn request_animation_frame(context: &CanvasRenderingContext2d) -> Result<(), JsV
 
     let context = context.clone();
     let closure = Closure::wrap(Box::new(move |_time: f64| {
-        update_frame(&context).ok();
+        update_frame(&context, _time).ok();
         request_animation_frame(&context).ok();
     }) as Box<dyn FnMut(f64)>);
 
@@ -152,14 +154,25 @@ fn request_animation_frame(context: &CanvasRenderingContext2d) -> Result<(), JsV
     Ok(())
 }
 
-fn update_frame(context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
+fn update_frame(context: &CanvasRenderingContext2d, time_ms: f64) -> Result<(), JsValue> {
+    // `time_ms` is the high-resolution timestamp provided by requestAnimationFrame (in ms)
+    // Compute frametime and FPS using a simple last-time delta.
+    let mut frametime_ms: f64 = 0.0;
+    let mut fps: f64 = 0.0;
+
     unsafe {
         FRAME_COUNT = FRAME_COUNT.wrapping_add(1);
+        if LAST_TIME_MS > 0.0 {
+            frametime_ms = time_ms - LAST_TIME_MS;
+            if frametime_ms > 0.0 {
+                fps = 1000.0 / frametime_ms;
+            }
+        }
+        LAST_TIME_MS = time_ms;
     }
 
     // Create black background
     let mut pixels = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
-
 
     // === CUSTOM EVENT LOOP ===
     // Update and render your particles here
@@ -171,6 +184,32 @@ fn update_frame(context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
     )?;
 
     context.put_image_data(&image_data, 0.0, 0.0)?;
+
+    // Draw overlay text in upper-right corner
+    let particles_count = unsafe { PARTICLES.len() };
+
+    // Style
+    context.set_fill_style(&JsValue::from_str("rgba(255,255,255,0.95)"));
+    context.set_font("10px monospace");
+    context.set_text_baseline("top");
+    context.set_text_align("right");
+
+    let x = WIDTH as f64 - 8.0;
+    let y1 = 8.0;
+    let y2 = y1 + 14.0;
+
+    // Pad numeric fields so widths remain stable (right-aligned within fixed width)
+    let s1 = format!("particles: {:>3}", particles_count);
+    let framems_i = frametime_ms.round() as i64;
+    let fps_i = fps.round() as i64;
+    let s2 = format!(
+        "frametime: {:>3} ms ({:>3}FPS)",
+        framems_i,
+        fps_i
+    );
+
+    let _ = context.fill_text(&s1, x, y1);
+    let _ = context.fill_text(&s2, x, y2);
 
     Ok(())
 }
@@ -194,7 +233,7 @@ fn update_and_render_particles(pixel_data: &mut [u8]) {
         }
 
         // Spawn new particles occasionally
-        if FRAME_COUNT % 10 == 0 && PARTICLES.len() < 400 {
+        if PARTICLES.len() < 4000 {
             PARTICLES.push(Particle::new_random());
         }
     }
