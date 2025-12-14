@@ -5,6 +5,7 @@ static mut FRAME_COUNT: u32 = 0;
 static mut PARTICLES: Vec<Particle> = Vec::new();
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
+const MASS_RANGE: [f32; 2] = [1.0, 4.0];
 
 /// A simple particle with position and velocity
 #[derive(Clone, Debug)]
@@ -13,7 +14,7 @@ pub struct Particle {
     pub y: f32,
     pub vx: f32,
     pub vy: f32,
-    mass: f32,
+    pub mass: f32,
     pub life: f32, // 0.0 to 1.0
 
 }
@@ -27,7 +28,7 @@ impl Particle {
             y: Math::random() as f32 * HEIGHT as f32,
             vx: (Math::random() as f32 - 0.5) * 4.0,
             vy: (Math::random() as f32 - 0.5) * 4.0,
-            mass: 1.0 + (Math::random() as f32) * 3.0, // between 1.0 and 4.0
+            mass: MASS_RANGE[0] + (Math::random() as f32) * (MASS_RANGE[1] - MASS_RANGE[0]),
             life: 1.0,
         }
     }
@@ -63,7 +64,7 @@ impl Particle {
     pub fn draw(&self, pixel_data: &mut [u8], _width: u32, _height: u32) {
         let x = self.x as i32;
         let y = self.y as i32;
-        let radius = 3 * self.mass as i32;
+        let radius = 3 + ((self.mass / 2.0) as i32);
 
         for dy in -radius..=radius {
             for dx in -radius..=radius {
@@ -156,7 +157,7 @@ fn update_frame(context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
         FRAME_COUNT = FRAME_COUNT.wrapping_add(1);
     }
 
-    // Create background with animated color
+    // Create black background
     let mut pixels = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
 
 
