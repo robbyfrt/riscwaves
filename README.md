@@ -1,5 +1,7 @@
 # riscwaves
 
+![Screenshot](./assets/images/web.png)
+
 A small WASM demo that visualizes particle waves driven by accelerometer-like input.
 
 This README explains how to build the WebAssembly package and run the demo locally using Python's simple HTTP server.
