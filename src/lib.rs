@@ -13,7 +13,9 @@ pub struct Particle {
     pub y: f32,
     pub vx: f32,
     pub vy: f32,
+    mass: f32,
     pub life: f32, // 0.0 to 1.0
+
 }
 
 impl Particle {
@@ -25,7 +27,8 @@ impl Particle {
             y: Math::random() as f32 * HEIGHT as f32,
             vx: (Math::random() as f32 - 0.5) * 4.0,
             vy: (Math::random() as f32 - 0.5) * 4.0,
-            life: 10.0,
+            mass: 1.0 + (Math::random() as f32) * 3.0, // between 1.0 and 4.0
+            life: 1.0,
         }
     }
 
@@ -44,15 +47,23 @@ impl Particle {
             self.y = self.y.clamp(0.0, HEIGHT as f32);
         }
 
+        // jump boost in bottom-left corner
+        if self.x < 0.05 * WIDTH as f32 && self.y > 0.95 * HEIGHT as f32 {
+            self.vy += -2.0 / self.mass;
+        } 
+
+        self.vy += 0.1 / self.mass; // gravity
+        self.vy *= 0.99; // air resistance
+
         // Decay life
-        self.life -= 0.01;
+        //self.life -= 0.002;
     }
 
     /// Draw particle as a circle on the canvas
     pub fn draw(&self, pixel_data: &mut [u8], _width: u32, _height: u32) {
         let x = self.x as i32;
         let y = self.y as i32;
-        let radius = 3;
+        let radius = 3 * self.mass as i32;
 
         for dy in -radius..=radius {
             for dx in -radius..=radius {
@@ -69,7 +80,7 @@ impl Particle {
                             pixel_data[idx] = pixel_data[idx].saturating_add(100);
                             pixel_data[idx + 1] = pixel_data[idx + 1].saturating_add(150);
                             pixel_data[idx + 2] = pixel_data[idx + 2].saturating_add(255);
-                            pixel_data[idx + 3] = pixel_data[idx + 3].saturating_add(alpha / 4);
+                            pixel_data[idx + 3] = pixel_data[idx + 3].saturating_add(alpha / 2);
                         }
                     }
                 }
@@ -118,7 +129,7 @@ pub fn main() -> Result<(), JsValue> {
 fn initialize_custom_particles() {
     unsafe {
         // Example: Create 50 random particles
-        for _ in 0..50 {
+        for _ in 0..100 {
             PARTICLES.push(Particle::new_random());
         }
         log::info!("Initialized {} particles", PARTICLES.len());
@@ -182,7 +193,7 @@ fn update_and_render_particles(pixel_data: &mut [u8]) {
         }
 
         // Spawn new particles occasionally
-        if FRAME_COUNT % 10 == 0 && PARTICLES.len() < 200 {
+        if FRAME_COUNT % 10 == 0 && PARTICLES.len() < 400 {
             PARTICLES.push(Particle::new_random());
         }
     }
