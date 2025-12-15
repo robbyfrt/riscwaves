@@ -1,10 +1,12 @@
 use wasm_bindgen::prelude::*;
-use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
-// overlay text is drawn directly with the 2d canvas context
+use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData, MouseEvent};
 
 static mut FRAME_COUNT: u32 = 0;
 static mut PARTICLES: Vec<Particle> = Vec::new();
 static mut LAST_TIME_MS: f64 = 0.0;
+static mut MOUSE_X: f32 = -1.0;
+static mut MOUSE_Y: f32 = -1.0;
+static mut MOUSE_ACTIVE: bool = false;
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
 const MASS_RANGE: [f32; 2] = [1.0, 4.0];
@@ -120,6 +122,31 @@ pub fn main() -> Result<(), JsValue> {
     // Initialize your custom particles here
     initialize_custom_particles();
 
+    // Set up mouse listeners to update global mouse position
+    {
+        let canvas_clone = canvas.clone();
+
+        let mv = Closure::wrap(Box::new(move |event: MouseEvent| {
+            unsafe {
+                MOUSE_X = (event.offset_x() as f32) / 900.0 * (WIDTH as f32);
+                MOUSE_Y = (event.offset_y() as f32) / 675.0 * (HEIGHT as f32);
+                MOUSE_ACTIVE = true;
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas_clone.add_event_listener_with_callback("mousemove", mv.as_ref().unchecked_ref())?;
+        mv.forget();
+
+        let leave = Closure::wrap(Box::new(move |_event: MouseEvent| {
+            unsafe {
+                MOUSE_ACTIVE = false;
+                MOUSE_X = -1.0;
+                MOUSE_Y = -1.0;
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mouseleave", leave.as_ref().unchecked_ref())?;
+        leave.forget();
+    }
+
     // Start the animation loop
     request_animation_frame(&context)?;
 
@@ -221,6 +248,27 @@ fn update_and_render_particles(pixel_data: &mut [u8]) {
     unsafe {
         // Remove dead particles
         PARTICLES.retain(|p| p.life > 0.0);
+
+        // Apply radial mouse force: particles within radius are attracted toward mouse
+        if MOUSE_ACTIVE {
+            let radius: f32 = 50.0;
+            let strength: f32 = 8.0;
+            for particle in PARTICLES.iter_mut() {
+                let dx = MOUSE_X - particle.x;
+                let dy = MOUSE_Y - particle.y;
+                let dist = (dx * dx + dy * dy).sqrt();
+                if dist > 0.0 && dist <= radius {
+                    let inv_dist = 1.0 / dist;
+                    let nx = dx * inv_dist;
+                    let ny = dy * inv_dist;
+                    let falloff = 1.0 - (dist / radius);
+                    let fx = nx * falloff * strength / particle.mass;
+                    let fy = ny * falloff * strength / particle.mass;
+                    particle.vx += fx;
+                    particle.vy += fy;
+                }
+            }
+        }
 
         // Update all particles
         for particle in PARTICLES.iter_mut() {
