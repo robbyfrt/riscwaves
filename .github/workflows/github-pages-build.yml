@@ -32,6 +32,8 @@ jobs:
           version: 'latest'
 
       - name: Build WASM
+        env:
+          RUSTFLAGS: ""
         run: wasm-pack build --target web --out-dir ./www
 
       - name: Setup Pages
