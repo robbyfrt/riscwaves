@@ -75,7 +75,7 @@ impl World {
             let rgba = if inside_the_box {
                 [0x5e, 0x48, 0xe8, 0xff]
             } else {
-                [0x48, 0xb2, 0xe8, 0xff]
+                [0x00, 0x00, 0x00, 0xff]
             };
 
             pixel.copy_from_slice(&rgba);
@@ -140,6 +140,10 @@ async fn run() {
                     .ok()
             })
             .expect("couldn't append canvas to document body");
+
+        let winit_canvas = window.canvas().unwrap();
+            winit_canvas.set_class_name("pixels-surface");
+
 
         let _ = window.request_inner_size(LogicalSize::new(WIDTH as f64, HEIGHT as f64));
         /*
