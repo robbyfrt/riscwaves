@@ -136,6 +136,7 @@
         }
     </style>
 </head>
+
 <body>
     <main class="frame">
         <header>
@@ -152,8 +153,8 @@
     </main>
 
     <script type="module">
-        import init from './pkg/riscwaves.js';
-        
+        import init from "./pkg/riscwaves.js";
+
         async function run() {
             try {
                 await init();
@@ -166,7 +167,10 @@
             }
         }
         
-        run().catch(console.error);
+        window.addEventListener("load", () => {
+            run().catch(console.error);
+        });
     </script>
 </body>
+
 </html>
