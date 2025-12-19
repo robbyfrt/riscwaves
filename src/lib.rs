@@ -12,6 +12,9 @@ use winit::keyboard::KeyCode;
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
+pub mod world;
+pub use world::World;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*; // at top, gated only for wasm32
 
@@ -23,69 +26,11 @@ pub fn wasm_start() {
 }
 
 
-const WIDTH: u32 = 640;
-const HEIGHT: u32 = 480;
-const BOX_SIZE: i16 = 64;
+pub const WIDTH: u32 = 640;
+pub const HEIGHT: u32 = 480;
+pub const BOX_SIZE: i16 = 64;
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
-struct World {
-    box_x: i16,
-    box_y: i16,
-    velocity_x: f32,
-    velocity_y: f32,
-}
-
-impl World {
-    /// Create a new `World` instance that can draw a moving box.
-    fn new() -> Self {
-        Self {
-            box_x: 24,
-            box_y: 16,
-            velocity_x: 1.0,
-            velocity_y: 1.0,
-        }
-    }
-
-    /// Update the `World` internal state; bounce the box around the screen.
-    fn update(&mut self) {
-        if self.box_x <= 0 || self.box_x + BOX_SIZE > WIDTH as i16 {
-            self.velocity_x *= -1.0;
-        }
-        if self.box_y <= 0 || self.box_y + BOX_SIZE > HEIGHT as i16 {
-            self.velocity_y *= -1.0;
-        }
-
-        self.velocity_y += 1.0; // gravity effect
-        self.velocity_y *= 0.995; // air resistance effect
-
-        self.box_x += self.velocity_x as i16;
-        self.box_y += self.velocity_y as i16;
-    }
-
-    /// Draw the `World` state to the frame buffer.
-    ///
-    /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
-    fn draw(&self, frame: &mut [u8]) {
-        for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-            let x = (i % WIDTH as usize) as i16;
-            let y = (i / WIDTH as usize) as i16;
-
-            let inside_the_box = x >= self.box_x
-                && x < self.box_x + BOX_SIZE
-                && y >= self.box_y
-                && y < self.box_y + BOX_SIZE;
-
-            let rgba = if inside_the_box {
-                [0x5e, 0x48, 0xe8, 0xff]
-            } else {
-                [0x00, 0x00, 0x00, 0xff]
-            };
-
-            pixel.copy_from_slice(&rgba);
-        }
-    }
-}
-
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
@@ -103,6 +48,8 @@ fn main() {
         pollster::block_on(run());
     }
 }
+
+// dynamic window size retrieval for wasm32 targets
 /*
 #[cfg(target_arch = "wasm32")]
 /// Retrieve current width and height dimensions of browser client window
@@ -149,6 +96,7 @@ async fn run() {
 
 
         let _ = window.request_inner_size(LogicalSize::new(WIDTH as f64, HEIGHT as f64));
+        // dynamic resize handling for browser client
         /*
         // Listen for resize event on browser client. Adjust winit window dimensions
         // on event trigger
