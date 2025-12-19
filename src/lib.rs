@@ -31,8 +31,8 @@ const BOX_SIZE: i16 = 64;
 struct World {
     box_x: i16,
     box_y: i16,
-    velocity_x: i16,
-    velocity_y: i16,
+    velocity_x: f32,
+    velocity_y: f32,
 }
 
 impl World {
@@ -41,22 +41,25 @@ impl World {
         Self {
             box_x: 24,
             box_y: 16,
-            velocity_x: 1,
-            velocity_y: 1,
+            velocity_x: 1.0,
+            velocity_y: 1.0,
         }
     }
 
     /// Update the `World` internal state; bounce the box around the screen.
     fn update(&mut self) {
         if self.box_x <= 0 || self.box_x + BOX_SIZE > WIDTH as i16 {
-            self.velocity_x *= -1;
+            self.velocity_x *= -1.0;
         }
         if self.box_y <= 0 || self.box_y + BOX_SIZE > HEIGHT as i16 {
-            self.velocity_y *= -1;
+            self.velocity_y *= -1.0;
         }
 
-        self.box_x += self.velocity_x;
-        self.box_y += self.velocity_y;
+        self.velocity_y += 1.0; // gravity effect
+        self.velocity_y *= 0.995; // air resistance effect
+
+        self.box_x += self.velocity_x as i16;
+        self.box_y += self.velocity_y as i16;
     }
 
     /// Draw the `World` state to the frame buffer.

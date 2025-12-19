@@ -33,8 +33,13 @@ opt-level = "z"  # Optimize for size
 lto = true
 codegen-units = 1
 
-[package.metadata.wasm-pack.profile.profiling]
-wasm-opt = false
+
+[profile.dev]
+opt-level = 0
+lto = false
+debug = true
+codegen-units = 256  # Maximum parallelization
+incremental = true
 
 
 
