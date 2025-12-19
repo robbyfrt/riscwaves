@@ -28,7 +28,6 @@ pub fn wasm_start() {
 
 pub const WIDTH: u32 = 640;
 pub const HEIGHT: u32 = 480;
-pub const BOX_SIZE: i16 = 64;
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
 
@@ -143,13 +142,7 @@ async fn run() {
     };
     let mut particles = ParticleSystem::new(1000);
     for _ in 0..500 {
-        let x = rand::random::<f32>() * WIDTH as f32;
-        let y = rand::random::<f32>() * HEIGHT as f32;
-        let vx = (rand::random::<f32>() - 0.5) * 4.0;
-        let vy = (rand::random::<f32>() - 0.5) * 4.0;
-        let mass = rand::random::<f32>() * 5.0 + 1.0;
-        let lifetime = rand::random::<f32>() * 5.0 + 1.0;
-        particles.spawn([x, y], [vx, vy], mass, lifetime);
+        particles.spawn_random(1.0, 5.0);
     }
 
     let res = event_loop.run(|event, elwt| {

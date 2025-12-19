@@ -1,4 +1,4 @@
-use crate::{BOX_SIZE, HEIGHT, WIDTH};
+use crate::{HEIGHT, WIDTH};
 
 pub struct ParticleSystem {
     position: Vec<[f32; 2]>,
@@ -6,7 +6,7 @@ pub struct ParticleSystem {
     forces: Vec<[f32; 2]>,
     mass: Vec<f32>,
     lifetime: Vec<f32>,
-    count: usize,
+    pub count: usize,
     capacity: usize,
     radius: i16
 }
@@ -34,7 +34,19 @@ impl ParticleSystem {
             self.count += 1;
         }
     }
-
+    pub fn spawn_random(&mut self, mass: f32, lifetime: f32) {
+        if self.count < self.capacity {
+            let position = [
+                rand::random::<f32>() * WIDTH as f32,
+                rand::random::<f32>() * HEIGHT as f32,
+            ];
+            let velocity = [
+                (rand::random::<f32>() - 0.5) * 4.0,
+                (rand::random::<f32>() - 0.5) * 4.0,
+            ];
+            self.spawn(position, velocity, mass, lifetime);
+        }
+    }
 
     /// Update the `ParticleSystem` internal state; bounce the particles around the screen.
     pub fn update(&mut self) {
