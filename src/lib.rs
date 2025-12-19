@@ -13,7 +13,7 @@ use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
 pub mod world;
-pub use world::World;
+pub use world::ParticleSystem;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*; // at top, gated only for wasm32
@@ -141,7 +141,16 @@ async fn run() {
 
         builder.build_async().await.expect("Pixels error")
     };
-    let mut world = World::new();
+    let mut particles = ParticleSystem::new(1000);
+    for _ in 0..500 {
+        let x = rand::random::<f32>() * WIDTH as f32;
+        let y = rand::random::<f32>() * HEIGHT as f32;
+        let vx = (rand::random::<f32>() - 0.5) * 4.0;
+        let vy = (rand::random::<f32>() - 0.5) * 4.0;
+        let mass = rand::random::<f32>() * 5.0 + 1.0;
+        let lifetime = rand::random::<f32>() * 5.0 + 1.0;
+        particles.spawn([x, y], [vx, vy], mass, lifetime);
+    }
 
     let res = event_loop.run(|event, elwt| {
         match event {
@@ -150,7 +159,7 @@ async fn run() {
                 ..
             } => {
                 // Draw the current frame
-                world.draw(pixels.frame_mut());
+                particles.draw(pixels.frame_mut());
                 if let Err(err) = pixels.render() {
                     log_error("pixels.render", err);
                     elwt.exit();
@@ -158,7 +167,7 @@ async fn run() {
                 }
 
                 // Update internal state and request a redraw
-                world.update();
+                particles.update();
                 window.request_redraw();
             }
 
