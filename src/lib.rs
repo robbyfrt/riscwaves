@@ -142,8 +142,13 @@ async fn run() {
     };
     let mut particles = ParticleSystem::new(1000);
     for _ in 0..500 {
-        particles.spawn_random(1.0, 5.0);
+        particles.spawn_random(1.0, 1.0);
     }
+    
+    #[cfg(target_arch = "wasm32")]
+    let mut frame_count = 0u32;
+    #[cfg(target_arch = "wasm32")]
+    let mut last_fps_update = get_time_ms();
 
     let res = event_loop.run(|event, elwt| {
         match event {
@@ -158,6 +163,24 @@ async fn run() {
                     elwt.exit();
                     return;
                 }
+
+               #[cfg(target_arch = "wasm32")]
+                {
+                    frame_count += 1;
+                    let now = get_time_ms();
+                    let elapsed = now - last_fps_update;
+                    
+                    // Update stats every 500ms
+                    if elapsed >= 250.0 {
+                        let fps = (frame_count as f64 * 1000.0) / elapsed;
+                        update_stats(particles.count, fps as f32);
+                        frame_count = 0;
+                        last_fps_update = now;
+                    }
+                }
+
+                particles.spawn_random(1.0, 1.0);
+
 
                 // Update internal state and request a redraw
                 particles.update();
@@ -185,6 +208,32 @@ async fn run() {
         }
     });
     res.unwrap();
+}
+
+#[cfg(target_arch = "wasm32")]
+fn update_stats(particle_count: usize, fps: f32) {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            // Update particle count
+            if let Some(elem) = document.get_element_by_id("particle-count") {
+                elem.set_text_content(Some(&particle_count.to_string()));
+            }
+            
+            // Update FPS
+            if let Some(elem) = document.get_element_by_id("fps") {
+                elem.set_text_content(Some(&format!("{:.0}", fps)));
+            }
+        }
+    }
+}
+
+
+#[cfg(target_arch = "wasm32")]
+fn get_time_ms() -> f64 {
+    web_sys::window()
+        .and_then(|w| w.performance())
+        .map(|p| p.now())
+        .unwrap_or(0.0)
 }
 
 fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {

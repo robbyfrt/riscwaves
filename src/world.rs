@@ -63,7 +63,7 @@ impl ParticleSystem {
             if self.position[i][1] <= 0.0 || self.position[i][1] + self.radius as f32 > HEIGHT as f32 {
                 self.velocity[i][1] *= -1.0;
             }
-            self.lifetime[i] -= 0.02;
+            self.lifetime[i] -= 0.001;
             if self.lifetime[i] < 0.0 {
                 self.lifetime[i] = 0.0;
                 self.velocity[i] = [0.0, 0.0];

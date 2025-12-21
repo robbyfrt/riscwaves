@@ -107,6 +107,14 @@
             opacity: 0.9;
         }
 
+        #stats {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums; /* keeps numbers aligned */
+        }
+
         #pixels-wrapper {
             position: relative;
             border-radius: 10px;
@@ -167,6 +175,11 @@
             <div class="hint">Tip: resize window to see how the field reacts.</div>
         </section>
 
+        <div id="stats" style="display: none;">
+            <span id="particle-count">0</span> particles • 
+            <span id="fps">0</span> FPS
+        </div>
+
         <div id="pixels-wrapper">
             <canvas id="pixels-canvas" class="pixels-surface"></canvas>
         </div>
@@ -180,6 +193,7 @@
                 await init();
                 console.log("WASM module initialized successfully!");
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('stats').style.display = 'block';
             } catch (error) {
                 console.error("Failed to initialize WASM:", error);
                 document.getElementById('loading').textContent =
