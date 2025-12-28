@@ -1345,6 +1345,7 @@ dependencies = [
  "error-iter",
  "getrandom",
  "glam",
+ "js-sys",
  "log",
  "pixels",
  "pollster 0.4.0",

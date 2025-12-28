@@ -59,3 +59,5 @@ added glam, with `RUSTFLAGS="-C target-feature=+simd128"` and release:
 replaced circle drawing with points:
 - 50000 particles, 7ms, 140FPS
 - 100000 particles, 7ms, 140FPS
+addition of dilate across frame to enlarge pixels:
+- 10000 particles, 7FPS

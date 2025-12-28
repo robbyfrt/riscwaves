@@ -173,8 +173,8 @@ async fn run() {
                     // Update stats every 500ms
                     if elapsed >= 250.0 {
                         let fps = (frame_count as f64 * 1000.0) / elapsed;
-                        let debug_text = format!("{:?}", particles.velocity[0]);
-                        update_stats(particles.count, fps as f32, &debug_text);
+                        let used_mb = get_memory_usage_mb();
+                        update_stats(particles.count, fps as f32, used_mb);
                         frame_count = 0;
                         last_fps_update = now;
                     }
@@ -212,7 +212,7 @@ async fn run() {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn update_stats(particle_count: usize, fps: f32, debug_text: &str) {
+fn update_stats(particle_count: usize, fps: f32, used_mb: f64) {
     if let Some(window) = web_sys::window() {
         if let Some(document) = window.document() {
             // Update particle count
@@ -224,14 +224,32 @@ fn update_stats(particle_count: usize, fps: f32, debug_text: &str) {
             if let Some(elem) = document.get_element_by_id("fps") {
                 elem.set_text_content(Some(&format!("{:.0}", fps)));
             }
-
-            if let Some(elem) = document.get_element_by_id("debug-text") {
-                elem.set_text_content(Some(&debug_text));
+            // Update memory usage  
+            if let Some(elem) = document.get_element_by_id("memory-usage") {
+                elem.set_text_content(Some(&format!("{:.2}", used_mb)));
             }
         }
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn get_memory_usage_mb() -> f64 {
+    // Update memory usage (read from the wasm linear memory)
+    // Note: the page uses id="memory-usage" for the span.
+    let mem_js = wasm_bindgen::memory();
+    match mem_js.dyn_into::<js_sys::WebAssembly::Memory>() {
+        Ok(memory) => {
+            // `memory.buffer()` returns a JS value; convert to `ArrayBuffer`
+            let buffer = js_sys::ArrayBuffer::from(memory.buffer());
+            let used_bytes = buffer.byte_length() as f64;
+            used_bytes / (1024.0 * 1024.0)
+        }
+        Err(e) => {
+            log::warn!("failed to access wasm memory: {:?}", e);
+            -1.0
+        }
+    }
+}   
 
 #[cfg(target_arch = "wasm32")]
 fn get_time_ms() -> f64 {
