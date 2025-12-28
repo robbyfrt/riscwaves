@@ -10,15 +10,16 @@ pub struct ParticleSystem {
     pub count: usize,
     capacity: usize,
     radius: i16,
-    params: SimParams,
-    draw_mode: DrawMode
+    pub params: SimParams,
+    draw_mode: DrawMode,
+    pub distorter: Option<Distorter>,
 }
 
 pub struct SimParams {
     pub gravity: Vec2,
     pub wind: Vec2,              // constant wind acceleration
     pub acceleration: Vec2,      // from acceleration sensor
-    pub global_drag: f32,        // simple velocity damping
+    pub global_drag: Vec2,        // simple velocity damping
     pub restitution: f32,        // wall collision bounce factor
     pub dt: f32,
 }
@@ -28,6 +29,12 @@ enum DrawMode {
     Circle {radius: i16},
     Point
 } 
+
+pub struct Distorter {
+    pub position: Vec2,
+    pub strength: f32,
+    pub radius: u8,
+}
 
 impl ParticleSystem {
     /// Create a new `World` instance that can draw a moving box.
@@ -43,13 +50,14 @@ impl ParticleSystem {
             radius: 4,
             params: SimParams {
                 gravity: Vec2::new(0.0, 0.5),
-                global_drag: 0.01,
+                global_drag: Vec2::new(0.01, 0.01),
                 wind: Vec2::new(0.0, 0.0),
                 acceleration: Vec2::new(0.0, 0.0),
                 restitution: 0.9,
                 dt: 1.0,
             },
-            draw_mode: DrawMode::Point
+            draw_mode: DrawMode::Point,
+            distorter: None,
         }
     }
     pub fn spawn(&mut self, pos: [f32; 2], vel: [f32; 2], mass: f32, lifetime: f32) {
@@ -104,6 +112,20 @@ impl ParticleSystem {
                 self.position[i][1] = self.position[i][1].clamp(0.0, (HEIGHT - self.radius as u32) as f32);
             }
             
+            if self.position[i][0] < 10.0 && self.position[i][1] >= 0.95 * HEIGHT as f32 {
+                self.velocity[i][1] += -5.0 / self.mass[i];
+            }
+            if self.distorter.is_some() {
+                let distorter = self.distorter.as_ref().unwrap();
+                let to_particle = self.position[i] - distorter.position;
+                let distance = to_particle.length();
+                if distance < distorter.radius as f32 {
+                    let direction = to_particle.normalize();
+                    let force_magnitude = distorter.strength * (1.0 - (distance / distorter.radius as f32));
+                    self.velocity[i] += direction * force_magnitude / self.mass[i];
+
+                }
+            }
             // self.lifetime[i] -= 0.001;
             if self.lifetime[i] < 0.0 {
                 self.lifetime[i] = 0.0;

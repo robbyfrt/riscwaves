@@ -187,7 +187,6 @@ async fn run() {
                 particles.update();
                 window.request_redraw();
             }
-
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
                 ..
@@ -199,6 +198,42 @@ async fn run() {
                     return;
                 }
             }
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved { device_id: _, position },
+                ..
+            } => {
+                // Update cursor position
+                let cursor_x = position.x as i16;
+                let cursor_y = position.y as i16;
+                #[cfg(target_arch = "wasm32")]
+                set_id_text("debug-text", &format!("Cursor: ({}, {})", cursor_x, cursor_y));
+                particles.distorter = Some(world::Distorter {
+                    position: glam::Vec2::new(cursor_x as f32, cursor_y as f32),
+                    strength: 30.0,
+                    radius: 20,
+                });
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorLeft { device_id: _,},
+                ..
+            } => {
+                // clear cursor position
+                #[cfg(target_arch = "wasm32")]
+                set_id_text("debug-text", "");
+                particles.distorter = None;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Touch (touch),
+                ..
+            } => {
+                use glam::Vec2;
+                let touch_x = touch.location.x as f32 / (3.0 * WIDTH as f32) - 0.5;
+                // update axis motion
+                #[cfg(target_arch = "wasm32")]
+                set_id_text("debug-text", &format!("Touch: {:?}", touch));
+                particles.params.acceleration = Vec2::new(touch_x, 0.0);
+            }
+            
 
             _ => (),
         }
@@ -227,6 +262,17 @@ fn update_stats(particle_count: usize, fps: f32, used_mb: f64) {
             // Update memory usage  
             if let Some(elem) = document.get_element_by_id("memory-usage") {
                 elem.set_text_content(Some(&format!("{:.2}", used_mb)));
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn set_id_text(id: &str, text: &str) {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            if let Some(elem) = document.get_element_by_id(id) {
+                elem.set_text_content(Some(text));
             }
         }
     }
