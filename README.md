@@ -56,3 +56,6 @@ with `RUSTFLAGS="-C target-feature=+simd128"` and release:
 - 50000 particles, 21ms, 47FPS
 added glam, with `RUSTFLAGS="-C target-feature=+simd128"` and release:
 - 50000 particles, 21ms, 47FPS
+replaced circle drawing with points:
+- 50000 particles, 7ms, 140FPS
+- 100000 particles, 7ms, 140FPS

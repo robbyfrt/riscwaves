@@ -11,6 +11,7 @@ pub struct ParticleSystem {
     capacity: usize,
     radius: i16,
     params: SimParams,
+    draw_mode: DrawMode
 }
 
 pub struct SimParams {
@@ -22,6 +23,11 @@ pub struct SimParams {
     pub dt: f32,
 }
 
+#[allow(dead_code)]
+enum DrawMode {
+    Circle {radius: i16},
+    Point
+} 
 
 impl ParticleSystem {
     /// Create a new `World` instance that can draw a moving box.
@@ -43,6 +49,7 @@ impl ParticleSystem {
                 restitution: 0.9,
                 dt: 1.0,
             },
+            draw_mode: DrawMode::Point
         }
     }
     pub fn spawn(&mut self, pos: [f32; 2], vel: [f32; 2], mass: f32, lifetime: f32) {
@@ -114,10 +121,14 @@ impl ParticleSystem {
         frame.fill(0x00);
 
         for particle_index in 0..self.count {
-            let circle_x = self.position[particle_index][0] as i16;
-            let circle_y = self.position[particle_index][1] as i16;
+            let x = self.position[particle_index][0] as i16;
+            let y = self.position[particle_index][1] as i16;
             let lifetime = self.lifetime[particle_index];
-            self.draw_circle(frame, circle_x, circle_y, self.radius, lifetime);
+
+            match self.draw_mode {
+                DrawMode::Circle {radius} => self.draw_circle(frame, x, y, radius, lifetime),
+                DrawMode::Point =>  self.draw_point_fast(frame, x, y, lifetime),
+            }
         }
     }
     fn draw_circle(&self, frame: &mut [u8], center_x: i16, center_y: i16, radius: i16, lifetime: f32) {
@@ -141,6 +152,20 @@ impl ParticleSystem {
                 }
             }
         }
-    }   
+    } 
+    fn draw_point_fast(&self, frame: &mut [u8], x: i16, y: i16, lifetime: f32) {
+        if x < 0 || x >= WIDTH as i16 || y < 0 || y >= HEIGHT as i16 {
+            return;
+        }
+        
+        let index = ((y as u32 * WIDTH + x as u32) * 4) as usize;
+        let alpha = (lifetime * 255.0) as u8;
+        
+        // Single pixel write (vastly faster than circle)
+        frame[index] = 0xFF;
+        frame[index + 1] = 0xFF;
+        frame[index + 2] = 0xFF;
+        frame[index + 3] = alpha;
+    }
 }
 
