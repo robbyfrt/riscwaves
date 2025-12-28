@@ -1,9 +1,10 @@
+use::glam::Vec2;
 use crate::{HEIGHT, WIDTH};
 
 pub struct ParticleSystem {
-    pub position: Vec<[f32; 2]>,
-    pub velocity: Vec<[f32; 2]>,
-    forces: Vec<[f32; 2]>,
+    pub position: Vec<Vec2>,
+    pub velocity: Vec<Vec2>,
+    forces: Vec<Vec2>,
     mass: Vec<f32>,
     lifetime: Vec<f32>,
     pub count: usize,
@@ -13,11 +14,11 @@ pub struct ParticleSystem {
 }
 
 pub struct SimParams {
-    pub gravity: [f32; 2],
-    pub global_drag: f32,           // simple velocity damping
-    pub wind: [f32; 2],             // constant wind acceleration
-    pub acceleration: [f32; 2],      // from acceleration sensor
-    pub restitution: f32,           // wall collision bounce factor
+    pub gravity: Vec2,
+    pub wind: Vec2,              // constant wind acceleration
+    pub acceleration: Vec2,      // from acceleration sensor
+    pub global_drag: f32,        // simple velocity damping
+    pub restitution: f32,        // wall collision bounce factor
     pub dt: f32,
 }
 
@@ -26,19 +27,19 @@ impl ParticleSystem {
     /// Create a new `World` instance that can draw a moving box.
     pub fn new(max_particles: usize) -> Self {
         Self {
-            position: vec![[0.0, 0.0]; max_particles],
-            velocity: vec![[0.0, 0.0]; max_particles],
-            forces: vec![[0.0, 0.0]; max_particles],
+            position: vec![Vec2::new(0.0, 0.0); max_particles],
+            velocity: vec![Vec2::new(0.0, 0.0); max_particles],
+            forces: vec![Vec2::new(0.0, 0.0); max_particles],
             mass: vec![1.0; max_particles],
             lifetime: vec![1.0; max_particles],
             count: 0,
             capacity: max_particles,
             radius: 4,
             params: SimParams {
-                gravity: [0.0, 0.5],
+                gravity: Vec2::new(0.0, 0.5),
                 global_drag: 0.01,
-                wind: [0.0, 0.0],
-                acceleration: [0.0, 0.0],
+                wind: Vec2::new(0.0, 0.0),
+                acceleration: Vec2::new(0.0, 0.0),
                 restitution: 0.9,
                 dt: 1.0,
             },
@@ -46,8 +47,8 @@ impl ParticleSystem {
     }
     pub fn spawn(&mut self, pos: [f32; 2], vel: [f32; 2], mass: f32, lifetime: f32) {
         if self.count < self.capacity {
-            self.position[self.count] = pos;
-            self.velocity[self.count] = vel;
+            self.position[self.count] = Vec2::new(pos[0], pos[1]);
+            self.velocity[self.count] = Vec2::new(vel[0], vel[1]);
             self.mass[self.count] = mass;
             self.lifetime[self.count] = lifetime;
             self.count += 1;
@@ -71,30 +72,20 @@ impl ParticleSystem {
     pub fn update(&mut self) {
         for i in 0..self.count {
 
-            self.forces[i] = [0.0, 0.0];
-            self.forces[i][0] += self.params.gravity[0] * self.mass[i];
-            self.forces[i][1] += self.params.gravity[1] * self.mass[i];
-            self.forces[i][0] += self.params.wind[0];
-            self.forces[i][1] += self.params.wind[1];
-            self.forces[i][0] += self.params.acceleration[0] * self.mass[i];
-            self.forces[i][1] += self.params.acceleration[1] * self.mass[i];
+            self.forces[i] = Vec2::new(0.0, 0.0);
+            self.forces[i] += self.params.gravity * self.mass[i];       // gravity
+            self.forces[i] += self.params.wind;                         // wind
+            self.forces[i] += self.params.acceleration * self.mass[i];  // external acceleration
 
             // simple drag: F = -k v
-            self.forces[i][0] += -self.params.global_drag * self.velocity[i][0];
-            self.forces[i][1] += -self.params.global_drag * self.velocity[i][1];
+            self.forces[i] += - self.params.global_drag * self.velocity[i];
 
-            
             // semi-implicit Euler integration  
-            let acceleration = [
-                self.forces[i][0] / self.mass[i],
-                self.forces[i][1] / self.mass[i],
-            ];
+            let acceleration = self.forces[i] / self.mass[i];
 
-            self.velocity[i][0] += acceleration[0] * self.params.dt;
-            self.velocity[i][1] += acceleration[1] * self.params.dt;
+            self.velocity[i] += acceleration * self.params.dt;
             
-            self.position[i][0] += self.velocity[i][0] * self.params.dt;
-            self.position[i][1] += self.velocity[i][1] * self.params.dt;          
+            self.position[i] += self.velocity[i] * self.params.dt;       
             
             // simple wall collisions
             if self.position[i][0] - self.radius as f32 <= 0.0 || self.position[i][0] + self.radius as f32 >= WIDTH as f32 {
@@ -109,8 +100,8 @@ impl ParticleSystem {
             // self.lifetime[i] -= 0.001;
             if self.lifetime[i] < 0.0 {
                 self.lifetime[i] = 0.0;
-                self.velocity[i] = [0.0, 0.0];
-                self.position[i] = [-100.0, -100.0]; // move off-screen
+                self.velocity[i] = Vec2::ZERO;
+                self.position[i] = Vec2::new(-100.0, -100.0); // move off-screen
             }
         }
     }

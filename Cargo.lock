@@ -581,6 +581,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.30.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd47b05dddf0005d850e5644cae7f2b14ac3df487979dbfff3b56f20b1a6ae46"
+
+[[package]]
 name = "glow"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1338,6 +1344,7 @@ dependencies = [
  "env_logger",
  "error-iter",
  "getrandom",
+ "glam",
  "log",
  "pixels",
  "pollster 0.4.0",
