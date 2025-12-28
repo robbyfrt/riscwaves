@@ -140,8 +140,8 @@ async fn run() {
 
         builder.build_async().await.expect("Pixels error")
     };
-    let mut particles = ParticleSystem::new(1000);
-    for _ in 0..500 {
+    let mut particles = ParticleSystem::new(10000);
+    for _ in 0..10000 {
         particles.spawn_random(1.0, 1.0);
     }
     
@@ -173,7 +173,8 @@ async fn run() {
                     // Update stats every 500ms
                     if elapsed >= 250.0 {
                         let fps = (frame_count as f64 * 1000.0) / elapsed;
-                        update_stats(particles.count, fps as f32);
+                        let debug_text = format!("{:?}", particles.velocity[0]);
+                        update_stats(particles.count, fps as f32, &debug_text);
                         frame_count = 0;
                         last_fps_update = now;
                     }
@@ -211,7 +212,7 @@ async fn run() {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn update_stats(particle_count: usize, fps: f32) {
+fn update_stats(particle_count: usize, fps: f32, debug_text: &str) {
     if let Some(window) = web_sys::window() {
         if let Some(document) = window.document() {
             // Update particle count
@@ -222,6 +223,10 @@ fn update_stats(particle_count: usize, fps: f32) {
             // Update FPS
             if let Some(elem) = document.get_element_by_id("fps") {
                 elem.set_text_content(Some(&format!("{:.0}", fps)));
+            }
+
+            if let Some(elem) = document.get_element_by_id("debug-text") {
+                elem.set_text_content(Some(&debug_text));
             }
         }
     }

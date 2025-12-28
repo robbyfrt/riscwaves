@@ -43,3 +43,9 @@ python3 -m http.server 8080 --bind 0.0.0.0
 - 10000 particles, 7ms 
 - 50000 particles, 27ms (16ms on iPad)
 - 100000 particles, 45ms (25ms on iPad)
+
+winit:
+unoptimized "dev"
+- 1000 particles, 80FPS
+optimized with release:
+- 10000 particles, 144FPS

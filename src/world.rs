@@ -1,15 +1,26 @@
 use crate::{HEIGHT, WIDTH};
 
 pub struct ParticleSystem {
-    position: Vec<[f32; 2]>,
-    velocity: Vec<[f32; 2]>,
+    pub position: Vec<[f32; 2]>,
+    pub velocity: Vec<[f32; 2]>,
     forces: Vec<[f32; 2]>,
     mass: Vec<f32>,
     lifetime: Vec<f32>,
     pub count: usize,
     capacity: usize,
-    radius: i16
+    radius: i16,
+    params: SimParams,
 }
+
+pub struct SimParams {
+    pub gravity: [f32; 2],
+    pub global_drag: f32,           // simple velocity damping
+    pub wind: [f32; 2],             // constant wind acceleration
+    pub acceleration: [f32; 2],      // from acceleration sensor
+    pub restitution: f32,           // wall collision bounce factor
+    pub dt: f32,
+}
+
 
 impl ParticleSystem {
     /// Create a new `World` instance that can draw a moving box.
@@ -22,7 +33,15 @@ impl ParticleSystem {
             lifetime: vec![1.0; max_particles],
             count: 0,
             capacity: max_particles,
-            radius: 4
+            radius: 4,
+            params: SimParams {
+                gravity: [0.0, 0.5],
+                global_drag: 0.01,
+                wind: [0.0, 0.0],
+                acceleration: [0.0, 0.0],
+                restitution: 0.9,
+                dt: 1.0,
+            },
         }
     }
     pub fn spawn(&mut self, pos: [f32; 2], vel: [f32; 2], mass: f32, lifetime: f32) {
@@ -51,19 +70,43 @@ impl ParticleSystem {
     /// Update the `ParticleSystem` internal state; bounce the particles around the screen.
     pub fn update(&mut self) {
         for i in 0..self.count {
-            self.velocity[i][1] += 1.0; // gravity effect
-            self.velocity[i][1] *= 0.995; // air resistance effect
 
-            self.position[i][0] += self.velocity[i][0];
-            self.position[i][1] += self.velocity[i][1];
+            self.forces[i] = [0.0, 0.0];
+            self.forces[i][0] += self.params.gravity[0] * self.mass[i];
+            self.forces[i][1] += self.params.gravity[1] * self.mass[i];
+            self.forces[i][0] += self.params.wind[0];
+            self.forces[i][1] += self.params.wind[1];
+            self.forces[i][0] += self.params.acceleration[0] * self.mass[i];
+            self.forces[i][1] += self.params.acceleration[1] * self.mass[i];
 
-            if self.position[i][0] <= 0.0 || self.position[i][0] + self.radius as f32 > WIDTH as f32 {
+            // simple drag: F = -k v
+            self.forces[i][0] += -self.params.global_drag * self.velocity[i][0];
+            self.forces[i][1] += -self.params.global_drag * self.velocity[i][1];
+
+            
+            // semi-implicit Euler integration  
+            let acceleration = [
+                self.forces[i][0] / self.mass[i],
+                self.forces[i][1] / self.mass[i],
+            ];
+
+            self.velocity[i][0] += acceleration[0] * self.params.dt;
+            self.velocity[i][1] += acceleration[1] * self.params.dt;
+            
+            self.position[i][0] += self.velocity[i][0] * self.params.dt;
+            self.position[i][1] += self.velocity[i][1] * self.params.dt;          
+            
+            // simple wall collisions
+            if self.position[i][0] - self.radius as f32 <= 0.0 || self.position[i][0] + self.radius as f32 >= WIDTH as f32 {
                 self.velocity[i][0] *= -1.0;
+                self.position[i][0] = self.position[i][0].clamp(0.0, (WIDTH - self.radius as u32) as f32);
             }
-            if self.position[i][1] <= 0.0 || self.position[i][1] + self.radius as f32 > HEIGHT as f32 {
+            if self.position[i][1] - self.radius as f32 <= 0.0 || self.position[i][1] + self.radius as f32 >= HEIGHT as f32 {
                 self.velocity[i][1] *= -1.0;
+                self.position[i][1] = self.position[i][1].clamp(0.0, (HEIGHT - self.radius as u32) as f32);
             }
-            self.lifetime[i] -= 0.001;
+            
+            // self.lifetime[i] -= 0.001;
             if self.lifetime[i] < 0.0 {
                 self.lifetime[i] = 0.0;
                 self.velocity[i] = [0.0, 0.0];
