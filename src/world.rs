@@ -112,8 +112,9 @@ impl ParticleSystem {
                 self.position[i][1] = self.position[i][1].clamp(0.0, (HEIGHT - self.radius as u32) as f32);
             }
             
+            //  repell at bottom left corner
             if self.position[i][0] < 10.0 && self.position[i][1] >= 0.95 * HEIGHT as f32 {
-                self.velocity[i][1] += -5.0 / self.mass[i];
+                self.velocity[i] += Vec2::new(2.0,-8.0) / self.mass[i];
             }
             if self.attractor.is_some() {
                 let attractor = self.attractor.as_ref().unwrap();
