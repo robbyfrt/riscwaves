@@ -207,10 +207,10 @@ async fn run() {
                 let cursor_y = position.y as i16;
                 #[cfg(target_arch = "wasm32")]
                 set_id_text("debug-text", &format!("Cursor: ({}, {})", cursor_x, cursor_y));
-                particles.distorter = Some(world::Distorter {
+                particles.attractor = Some(world::Attractor {
                     position: glam::Vec2::new(cursor_x as f32, cursor_y as f32),
-                    strength: 30.0,
-                    radius: 20,
+                    strength: 6.0,
+                    radius: 50,
                 });
             }
             Event::WindowEvent {
@@ -220,7 +220,7 @@ async fn run() {
                 // clear cursor position
                 #[cfg(target_arch = "wasm32")]
                 set_id_text("debug-text", "");
-                particles.distorter = None;
+                particles.attractor = None;
             }
             Event::WindowEvent {
                 event: WindowEvent::Touch (touch),

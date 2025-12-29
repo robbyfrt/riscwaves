@@ -12,7 +12,7 @@ pub struct ParticleSystem {
     radius: i16,
     pub params: SimParams,
     draw_mode: DrawMode,
-    pub distorter: Option<Distorter>,
+    pub attractor: Option<Attractor>,
 }
 
 pub struct SimParams {
@@ -30,7 +30,7 @@ enum DrawMode {
     Point
 } 
 
-pub struct Distorter {
+pub struct Attractor {
     pub position: Vec2,
     pub strength: f32,
     pub radius: u8,
@@ -57,7 +57,7 @@ impl ParticleSystem {
                 dt: 1.0,
             },
             draw_mode: DrawMode::Point,
-            distorter: None,
+            attractor: None,
         }
     }
     pub fn spawn(&mut self, pos: [f32; 2], vel: [f32; 2], mass: f32, lifetime: f32) {
@@ -115,15 +115,14 @@ impl ParticleSystem {
             if self.position[i][0] < 10.0 && self.position[i][1] >= 0.95 * HEIGHT as f32 {
                 self.velocity[i][1] += -5.0 / self.mass[i];
             }
-            if self.distorter.is_some() {
-                let distorter = self.distorter.as_ref().unwrap();
-                let to_particle = self.position[i] - distorter.position;
+            if self.attractor.is_some() {
+                let attractor = self.attractor.as_ref().unwrap();
+                let to_particle = self.position[i] - attractor.position;
                 let distance = to_particle.length();
-                if distance < distorter.radius as f32 {
-                    let direction = to_particle.normalize();
-                    let force_magnitude = distorter.strength * (1.0 - (distance / distorter.radius as f32));
-                    self.velocity[i] += direction * force_magnitude / self.mass[i];
-
+                if distance < attractor.radius as f32 {
+                    let n = to_particle * (1.0 / distance);
+                    let falloff = 1.0 - (distance / attractor.radius as f32);
+                    self.velocity[i] += -n * falloff * attractor.strength / self.mass[i];
                 }
             }
             // self.lifetime[i] -= 0.001;
