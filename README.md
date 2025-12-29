@@ -43,3 +43,21 @@ python3 -m http.server 8080 --bind 0.0.0.0
 - 10000 particles, 7ms 
 - 50000 particles, 27ms (16ms on iPad)
 - 100000 particles, 45ms (25ms on iPad)
+
+winit:
+build profile: dev:
+- 1000 particles, 13ms 80FPS
+- 100000 particles, 4FPS
+build profile release:
+- 10000 particles, 7ms, 140FPS
+- 50000 particles, 21ms, 47FPS
+- 100000 particles, 45ms, 22FPS
+with `RUSTFLAGS="-C target-feature=+simd128"` and release:
+- 50000 particles, 21ms, 47FPS
+added glam, with `RUSTFLAGS="-C target-feature=+simd128"` and release:
+- 50000 particles, 21ms, 47FPS
+replaced circle drawing with points:
+- 50000 particles, 7ms, 140FPS
+- 100000 particles, 7ms, 140FPS
+addition of dilate across frame to enlarge pixels:
+- 10000 particles, 7FPS

@@ -40,7 +40,7 @@
         }
 
         .frame {
-            width: min(960px, 100%);
+            width: min(696px, 100%);
             padding: 24px 28px 32px;
             border-radius: 16px;
             background: rgba(10, 10, 20, 0.86);
@@ -107,16 +107,42 @@
             opacity: 0.9;
         }
 
-        canvas { 
-            display: block; 
-            width: 100%;
+        #stats {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            font-variant-numeric: tabular-nums; /* keeps numbers aligned */
+        }
+
+        #pixels-wrapper {
+            position: relative;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: radial-gradient(circle at 15% 0%, #272727, #050505 55%);
+            overflow: hidden;
+        }
+
+        /* Overlay on top of the canvas */
+        #pixels-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: 0;              /* top:0; right:0; bottom:0; left:0; */
+            pointer-events: none;  /* don't block mouse */
+            background: radial-gradient(circle at 15% 0%, rgba(39, 39, 39, 0.85), rgba(5, 5, 5, 0) 55%);
             box-shadow:
                 0 0 0 1px rgba(0, 0, 0, 0.8),
                 0 0 35px rgba(0, 212, 255, 0.25);
+            z-index: 1;
         }
+
+        #pixels-wrapper canvas.pixels-surface {
+            position: relative;
+            z-index: 0;
+            display: block;
+            width: 100%;
+            background: transparent;
+        }
+
+
 
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -136,6 +162,7 @@
         }
     </style>
 </head>
+
 <body>
     <main class="frame">
         <header>
@@ -145,20 +172,31 @@
 
         <section class="status-row">
             <div id="loading">Loading WASM module…</div>
-            <div class="hint">Tip: resize window to see how the field reacts.</div>
+            <div class="hint">This simulation runs on the Client via WebGPU.</div>
+            <div class="hint">Hover Mouse for attractor or Touch-Slide for wind.</div>
         </section>
 
-        <canvas id="pixels-canvas"></canvas>
+        <div id="stats" style="display: none;">
+            <span id="particle-count">0</span> particles • 
+            <span id="fps">0</span> FPS •
+            <span id="memory-usage">0</span> MB WASM memory
+            <span id="debug-text"></span>
+        </div>
+
+        <div id="pixels-wrapper">
+            <canvas id="pixels-canvas" class="pixels-surface"></canvas>
+        </div>
     </main>
 
     <script type="module">
-        import init from './pkg/riscwaves.js';
-        
+        import init from "./pkg/riscwaves.js";
+
         async function run() {
             try {
                 await init();
                 console.log("WASM module initialized successfully!");
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('stats').style.display = 'block';
             } catch (error) {
                 console.error("Failed to initialize WASM:", error);
                 document.getElementById('loading').textContent =
@@ -166,7 +204,10 @@
             }
         }
         
-        run().catch(console.error);
+        window.addEventListener("load", () => {
+            run().catch(console.error);
+        });
     </script>
 </body>
+
 </html>

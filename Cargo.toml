@@ -12,17 +12,38 @@ default = ["optimize"]
 
 [dependencies]
 log = "0.4"
+error-iter = "0.4.1"
 pixels = "0.15"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
+winit = "0.29"
+winit_input_helper = "0.15.0"
+rand = "0.9.2"
+glam = "0.30.9"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"
 console_log = "1"
-web-sys = { version = "0.3", features = ["CanvasRenderingContext2d", "HtmlCanvasElement", "Document", "Window", "ImageData", "MouseEvent", "DeviceMotionEvent"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["GpuTextureFormat","Performance"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 js-sys = "0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11.8"
+pollster = "0.4.0"
 
 [profile.release]
 opt-level = "z"  # Optimize for size
 lto = true
 codegen-units = 1
+
+
+[profile.dev]
+opt-level = 0
+lto = false
+debug = true
+codegen-units = 256  # Maximum parallelization
+incremental = true
+
 
 
