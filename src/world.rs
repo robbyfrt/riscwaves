@@ -153,7 +153,7 @@ pub struct Renderer{
     post_process: Option<PostProcess>,
     temp_buffer: Vec<u8>,
     blur_buffer: Vec<u8>,
-    dirty_rect: Option<[u32; 4]>
+    dirty_rect: Option<(usize, usize, usize, usize)>
 }
 
 #[allow(dead_code)]
@@ -184,20 +184,41 @@ impl Renderer {
     /// Draw the `ParticleSystem` state to the frame buffer.
     ///
     /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
-    pub fn draw(&self, frame: &mut [u8], particles: &ParticleSystem) {
+    pub fn draw(&mut self, frame: &mut [u8], particles: &ParticleSystem) {
         // Clear the frame to black
         frame.fill(0x00);
 
+        // track region of interest
+        let mut min_x = self.width ;
+        let mut max_x = 0;
+        let mut min_y = self.height;
+        let mut max_y = 0;
+                
+
         for particle_index in 0..particles.count {
-            let x: i16 = particles.position[particle_index][0] as i16;
-            let y = particles.position[particle_index][1] as i16;
+            let x  = particles.position[particle_index].x as usize;
+            let y  = particles.position[particle_index].y as usize;
             let lifetime = particles.lifetime[particle_index];
 
             match self.mode {
-                DrawMode::Circle {radius} => self.draw_circle(frame, x, y, radius, lifetime),
-                DrawMode::Point =>  self.draw_point_fast(frame, x, y, lifetime),
+                DrawMode::Circle {radius} => self.draw_circle(frame, x as i16, y as i16, radius, lifetime),
+                DrawMode::Point =>  self.draw_point_fast(frame, x, y),
             }
+
+            // Update bounds for dirty region
+            if x < min_x { min_x = x; }
+            if x > max_x { max_x = x; }
+            if y < min_y { min_y = y; }
+            if y > max_y { max_y = y; }
         }
+        
+        // Store dirty region
+        self.dirty_rect = Some((min_x, min_y, max_x, max_y));
+
+        // Apply post-processing
+        self.dilation(frame);
+        // self.alpha_cross_blur(frame);
+
     }
     fn draw_circle(&self, frame: &mut [u8], center_x: i16, center_y: i16, radius: i16, lifetime: f32) {
         let radius_squared = radius * radius;
@@ -221,19 +242,49 @@ impl Renderer {
             }
         }
     } 
-    fn draw_point_fast(&self, frame: &mut [u8], x: i16, y: i16, lifetime: f32) {
-        if x < 0 || x >= self.width as i16 || y < 0 || y >= self.height as i16 {
-            return;
+    fn draw_point_fast(&self, frame: &mut [u8], x: usize, y: usize) {
+        if x < self.width && y < self.height {
+            let idx = (y * self.width + x) * 4;
+            frame[idx..idx + 4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]);
         }
-
-        let index = (y as usize * self.width + x as usize) * 4;
-        let alpha = (lifetime * 255.0) as u8;
+    }
+    pub fn dilation(&mut self, frame: &mut [u8]) {
+        let Some((min_x, min_y, max_x, max_y)) = self.dirty_rect else {
+            return;
+        };
+        let width = self.width as usize;
+        let height = self.height as usize;
+        // Copy only dirty region to temp buffer
+        self.temp_buffer.copy_from_slice(frame);
+        let src = &self.temp_buffer;
         
-        // Single pixel write (vastly faster than circle)
-        frame[index] = 0xFF;
-        frame[index + 1] = 0xFF;
-        frame[index + 2] = 0xFF;
-        frame[index + 3] = alpha;
+        // Process only active region with 1-pixel padding
+        for y in min_y..max_y {
+            for x in min_x..max_x {
+                let idx = (y * width + x) * 4;
+                
+                // Skip if already white
+                if src[idx + 3] == 0xFF {
+                    continue;
+                }
+                
+                // Check 3x3 neighborhood (unrolled for speed)
+                let w = width * 4;
+                let has_neighbor = 
+                    (x > 0 && src[idx - 4 + 3] > 0) ||
+                    (x < width - 1 && src[idx + 4 + 3] > 0) ||
+                    (y > 0 && src[idx - w + 3] > 0) ||
+                    (y < height - 1 && src[idx + w + 3] > 0) ||
+                    (x > 0 && y > 0 && src[idx - w - 4 + 3] > 0) ||
+                    (x < width - 1 && y > 0 && src[idx - w + 4 + 3] > 0) ||
+                    (x > 0 && y < height - 1 && src[idx + w - 4 + 3] > 0) ||
+                    (x < width - 1 && y < height - 1 && src[idx + w + 4 + 3] > 0);
+                
+                if has_neighbor {
+                    frame[idx..idx + 3].copy_from_slice(&[0xCC, 0xCC, 0xCC]);
+                    frame[idx + 3] = 0xCC; // Slightly transparent dilated pixels
+                }
+            }
+        }
     }
 }
-

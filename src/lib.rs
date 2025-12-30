@@ -141,7 +141,7 @@ async fn run() {
         builder.build_async().await.expect("Pixels error")
     };
     let mut particles = ParticleSystem::new(10000, WIDTH as usize, HEIGHT as usize);
-    let renderer = Renderer::new(WIDTH as usize, HEIGHT as usize);
+    let mut renderer = Renderer::new(WIDTH as usize, HEIGHT as usize);
     for _ in 0..10000 {
         particles.spawn_random(1.0, 1.0);
     }
