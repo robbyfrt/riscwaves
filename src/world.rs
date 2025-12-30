@@ -145,7 +145,7 @@ impl ParticleSystem {
     }
 }
 
-#[allow(dead_code)]
+
 pub struct Renderer{
     width: usize,
     height: usize,
@@ -164,9 +164,8 @@ enum DrawMode {
 
 #[allow(dead_code)]
 enum PostProcess {
-    BoxBlur {kernel_size: usize},
-    Bloom {threshold: f32, intensity: f32},
-    Dilate {radius: usize},
+    BoxBlur,
+    Dilate,
 }
 
 impl Renderer {
@@ -175,7 +174,7 @@ impl Renderer {
             width,
             height,
             mode: DrawMode::Point,
-            post_process: None,
+            post_process: Some(PostProcess::Dilate),
             temp_buffer: vec![0u8; width * height * 4],
             blur_buffer: vec![0u8; width * height * 4],
             dirty_rect: None,
@@ -216,9 +215,11 @@ impl Renderer {
         self.dirty_rect = Some((min_x, min_y, max_x, max_y));
 
         // Apply post-processing
-        self.dilation(frame);
-        // self.alpha_cross_blur(frame);
-
+        match self.post_process {
+            Some(PostProcess::BoxBlur) => self.fast_blur_alpha_only(frame),
+            Some(PostProcess::Dilate) => self.dilation(frame),
+            _ => {},
+        }
     }
     fn draw_circle(&self, frame: &mut [u8], center_x: i16, center_y: i16, radius: i16, lifetime: f32) {
         let radius_squared = radius * radius;
@@ -287,4 +288,32 @@ impl Renderer {
             }
         }
     }
+    // Single-pass accumulation blur (much faster)
+    fn fast_blur_alpha_only(&mut self, frame: &mut [u8]) {
+        let w = self.width as usize;
+        let h = self.height as usize;
+        
+        self.blur_buffer.copy_from_slice(frame);
+        
+        // Only process alpha channel (every 4th byte)
+        for y in 1..h-1 {
+            for x in 1..w-1 {
+                let idx = (y * w + x) * 4 + 3;  // Alpha only
+                
+                if frame[idx] == 0 {  // Skip if already empty
+                    continue;
+                }
+                
+                // Simplified 5-tap cross instead of 9-tap box
+                let sum = frame[idx] as u16 
+                    + frame[idx - 4] as u16  // left
+                    + frame[idx + 4] as u16  // right  
+                    + frame[idx - w*4] as u16  // up
+                    + frame[idx + w*4] as u16; // down
+                
+                frame[idx] = (sum / 5) as u8;
+            }
+        }
+    }
+
 }
