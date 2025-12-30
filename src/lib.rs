@@ -13,7 +13,7 @@ use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 
 pub mod world;
-pub use world::ParticleSystem;
+pub use world::{ParticleSystem, Renderer};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*; // at top, gated only for wasm32
@@ -140,7 +140,8 @@ async fn run() {
 
         builder.build_async().await.expect("Pixels error")
     };
-    let mut particles = ParticleSystem::new(10000);
+    let mut particles = ParticleSystem::new(10000, WIDTH as usize, HEIGHT as usize);
+    let renderer = Renderer::new(WIDTH as usize, HEIGHT as usize);
     for _ in 0..10000 {
         particles.spawn_random(1.0, 1.0);
     }
@@ -157,7 +158,7 @@ async fn run() {
                 ..
             } => {
                 // Draw the current frame
-                particles.draw(pixels.frame_mut());
+                renderer.draw(pixels.frame_mut(), &particles);
                 if let Err(err) = pixels.render() {
                     log_error("pixels.render", err);
                     elwt.exit();
@@ -231,7 +232,7 @@ async fn run() {
                 // update axis motion
                 #[cfg(target_arch = "wasm32")]
                 set_id_text("debug-text", &format!("Touch: {:?}", touch));
-                particles.params.acceleration = Vec2::new(touch_x, 0.0);
+                particles.simulation.acceleration = Vec2::new(touch_x, 0.0);
             }
             
 
