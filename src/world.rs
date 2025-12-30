@@ -1,17 +1,17 @@
-use::glam::Vec2;
-use crate::{HEIGHT, WIDTH};
+use glam::Vec2;
 
 pub struct ParticleSystem {
-    pub position: Vec<Vec2>,
-    pub velocity: Vec<Vec2>,
+    width: usize,
+    height: usize,
+    position: Vec<Vec2>,
+    velocity: Vec<Vec2>,
     forces: Vec<Vec2>,
     mass: Vec<f32>,
     lifetime: Vec<f32>,
     pub count: usize,
     capacity: usize,
     radius: i16,
-    pub params: SimParams,
-    draw_mode: DrawMode,
+    pub simulation: SimParams,
     pub attractor: Option<Attractor>,
 }
 
@@ -24,12 +24,6 @@ pub struct SimParams {
     pub dt: f32,
 }
 
-#[allow(dead_code)]
-enum DrawMode {
-    Circle {radius: i16},
-    Point
-} 
-
 pub struct Attractor {
     pub position: Vec2,
     pub strength: f32,
@@ -38,8 +32,10 @@ pub struct Attractor {
 
 impl ParticleSystem {
     /// Create a new `World` instance that can draw a moving box.
-    pub fn new(max_particles: usize) -> Self {
+    pub fn new(max_particles: usize, width: usize, height: usize) -> Self {
         Self {
+            width,
+            height,
             position: vec![Vec2::new(0.0, 0.0); max_particles],
             velocity: vec![Vec2::new(0.0, 0.0); max_particles],
             forces: vec![Vec2::new(0.0, 0.0); max_particles],
@@ -48,7 +44,7 @@ impl ParticleSystem {
             count: 0,
             capacity: max_particles,
             radius: 4,
-            params: SimParams {
+            simulation: SimParams {
                 gravity: Vec2::new(0.0, 0.5),
                 global_drag: Vec2::new(0.01, 0.01),
                 wind: Vec2::new(0.0, 0.0),
@@ -56,7 +52,6 @@ impl ParticleSystem {
                 restitution: 0.9,
                 dt: 1.0,
             },
-            draw_mode: DrawMode::Point,
             attractor: None,
         }
     }
@@ -72,8 +67,8 @@ impl ParticleSystem {
     pub fn spawn_random(&mut self, mass: f32, lifetime: f32) {
         if self.count < self.capacity {
             let position = [
-                rand::random::<f32>() * WIDTH as f32,
-                rand::random::<f32>() * HEIGHT as f32,
+                rand::random::<f32>() * self.width as f32,
+                rand::random::<f32>() * self.height as f32,
             ];
             let velocity = [
                 (rand::random::<f32>() - 0.5) * 4.0,
@@ -85,87 +80,160 @@ impl ParticleSystem {
 
     /// Update the `ParticleSystem` internal state; bounce the particles around the screen.
     pub fn update(&mut self) {
+        let g = self.simulation.gravity;
+        let wind = self.simulation.wind;
+        let acc = self.simulation.acceleration;
+        let drag = self.simulation.global_drag;
+        let dt = self.simulation.dt;
+        let radius = self.radius as f32;
+
         for i in 0..self.count {
+            let m = self.mass[i];
+            let mut pos = self.position[i];
+            let mut vel = self.velocity[i];
+            let mut lt = self.lifetime[i];
 
-            self.forces[i] = Vec2::new(0.0, 0.0);
-            self.forces[i] += self.params.gravity * self.mass[i];       // gravity
-            self.forces[i] += self.params.wind;                         // wind
-            self.forces[i] += self.params.acceleration * self.mass[i];  // external acceleration
-
-            // simple drag: F = -k v
-            self.forces[i] += - self.params.global_drag * self.velocity[i];
+            let mut f = Vec2::new(0.0, 0.0);
+            f += g * m;         // gravity
+            f += wind;          // wind
+            f += acc * m;       // external acceleration
+            f += - drag * vel;  // simple drag: F = -k v
 
             // semi-implicit Euler integration  
-            let acceleration = self.forces[i] / self.mass[i];
+            let acceleration = f / m;
 
-            self.velocity[i] += acceleration * self.params.dt;
+            vel += acceleration * dt;
             
-            self.position[i] += self.velocity[i] * self.params.dt;       
-            
+            pos += vel * dt;       
             // simple wall collisions
-            if self.position[i][0] - self.radius as f32 <= 0.0 || self.position[i][0] + self.radius as f32 >= WIDTH as f32 {
-                self.velocity[i][0] *= -1.0;
-                self.position[i][0] = self.position[i][0].clamp(0.0, (WIDTH - self.radius as u32) as f32);
+            if pos[0] - radius <= 0.0 || pos[0] + radius >= self.width as f32 {
+                vel[0] *= -1.0;
+                pos[0] = pos[0].clamp(0.0, (self.width - radius as usize) as f32);
             }
-            if self.position[i][1] - self.radius as f32 <= 0.0 || self.position[i][1] + self.radius as f32 >= HEIGHT as f32 {
-                self.velocity[i][1] *= -1.0;
-                self.position[i][1] = self.position[i][1].clamp(0.0, (HEIGHT - self.radius as u32) as f32);
+            if pos[1] - radius <= 0.0 || pos[1] + radius >= self.height as f32 {
+                vel[1] *= -1.0;
+                pos[1] = pos[1].clamp(0.0, (self.height - radius as usize) as f32);
             }
             
             //  repell at bottom left corner
-            if self.position[i][0] < 10.0 && self.position[i][1] >= 0.95 * HEIGHT as f32 {
-                self.velocity[i] += Vec2::new(2.0,-8.0) / self.mass[i];
+            if pos[0] < 10.0 && pos[1] >= 0.95 * self.height as f32 {
+                vel += Vec2::new(2.0,-8.0) / m;
             }
             if self.attractor.is_some() {
                 let attractor = self.attractor.as_ref().unwrap();
-                let to_particle = self.position[i] - attractor.position;
+                let to_particle = pos - attractor.position;
                 let distance = to_particle.length();
                 if distance < attractor.radius as f32 {
                     let n = to_particle * (1.0 / distance);
                     let falloff = 1.0 - (distance / attractor.radius as f32);
-                    self.velocity[i] += -n * falloff * attractor.strength / self.mass[i];
+                    vel += -n * falloff * attractor.strength / m;
                 }
             }
-            // self.lifetime[i] -= 0.001;
-            if self.lifetime[i] < 0.0 {
-                self.lifetime[i] = 0.0;
-                self.velocity[i] = Vec2::ZERO;
-                self.position[i] = Vec2::new(-100.0, -100.0); // move off-screen
+            // lt -= 0.001;
+            if lt < 0.0 {
+                lt = 0.0;
+                vel = Vec2::ZERO;
+                pos = Vec2::new(-100.0, -100.0); // move off-screen
             }
+
+            // write back mutated values
+            self.forces[i] = f;
+            self.velocity[i] = vel;
+            self.position[i] = pos;
+            self.lifetime[i] = lt;
         }
     }
+}
 
+
+pub struct Renderer{
+    width: usize,
+    height: usize,
+    mode: DrawMode,
+    post_process: Option<PostProcess>,
+    temp_buffer: Vec<u8>,
+    blur_buffer: Vec<u8>,
+    dirty_rect: Option<(usize, usize, usize, usize)>
+}
+
+#[allow(dead_code)]
+enum DrawMode {
+    Circle {radius: i16},
+    Point
+} 
+
+#[allow(dead_code)]
+enum PostProcess {
+    BoxBlur,
+    Dilate,
+}
+
+impl Renderer {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            width,
+            height,
+            mode: DrawMode::Point,
+            post_process: Some(PostProcess::Dilate),
+            temp_buffer: vec![0u8; width * height * 4],
+            blur_buffer: vec![0u8; width * height * 4],
+            dirty_rect: None,
+            }
+        }
     /// Draw the `ParticleSystem` state to the frame buffer.
     ///
     /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
-    pub fn draw(&self, frame: &mut [u8]) {
+    pub fn draw(&mut self, frame: &mut [u8], particles: &ParticleSystem) {
         // Clear the frame to black
         frame.fill(0x00);
 
-        for particle_index in 0..self.count {
-            let x = self.position[particle_index][0] as i16;
-            let y = self.position[particle_index][1] as i16;
-            let lifetime = self.lifetime[particle_index];
+        // track region of interest
+        let mut min_x = self.width ;
+        let mut max_x = 0;
+        let mut min_y = self.height;
+        let mut max_y = 0;
+                
 
-            match self.draw_mode {
-                DrawMode::Circle {radius} => self.draw_circle(frame, x, y, radius, lifetime),
-                DrawMode::Point =>  self.draw_point_fast(frame, x, y, lifetime),
+        for particle_index in 0..particles.count {
+            let x  = particles.position[particle_index].x as usize;
+            let y  = particles.position[particle_index].y as usize;
+            let lifetime = particles.lifetime[particle_index];
+
+            match self.mode {
+                DrawMode::Circle {radius} => self.draw_circle(frame, x as i16, y as i16, radius, lifetime),
+                DrawMode::Point =>  self.draw_point_fast(frame, x, y),
             }
+
+            // Update bounds for dirty region
+            if x < min_x { min_x = x; }
+            if x > max_x { max_x = x; }
+            if y < min_y { min_y = y; }
+            if y > max_y { max_y = y; }
+        }
+        
+        // Store dirty region
+        self.dirty_rect = Some((min_x, min_y, max_x, max_y));
+
+        // Apply post-processing
+        match self.post_process {
+            Some(PostProcess::BoxBlur) => self.fast_blur_alpha_only(frame),
+            Some(PostProcess::Dilate) => self.dilation(frame),
+            _ => {},
         }
     }
     fn draw_circle(&self, frame: &mut [u8], center_x: i16, center_y: i16, radius: i16, lifetime: f32) {
         let radius_squared = radius * radius;
         let min_x = (center_x - radius).max(0);
-        let max_x = (center_x + radius).min(WIDTH as i16 - 1);
+        let max_x = (center_x + radius).min(self.width as i16 - 1);
         let min_y = (center_y - radius).max(0);
-        let max_y = (center_y + radius).min(HEIGHT as i16 - 1);
+        let max_y = (center_y + radius).min(self.height as i16 - 1);
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
                 let dx = x - center_x;
                 let dy = y - center_y;
                 if dx * dx + dy * dy <= radius_squared {
-                    let index = ((y as u32 * WIDTH + x as u32) * 4) as usize;
+                    let index = (y as usize * self.width + x as usize) * 4;
                     let alpha = (lifetime * 255.0) as u8;
                     frame[index] = 0xFF;     // R
                     frame[index + 1] = 0xFF; // G
@@ -175,19 +243,77 @@ impl ParticleSystem {
             }
         }
     } 
-    fn draw_point_fast(&self, frame: &mut [u8], x: i16, y: i16, lifetime: f32) {
-        if x < 0 || x >= WIDTH as i16 || y < 0 || y >= HEIGHT as i16 {
-            return;
+    fn draw_point_fast(&self, frame: &mut [u8], x: usize, y: usize) {
+        if x < self.width && y < self.height {
+            let idx = (y * self.width + x) * 4;
+            frame[idx..idx + 4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]);
         }
-        
-        let index = ((y as u32 * WIDTH + x as u32) * 4) as usize;
-        let alpha = (lifetime * 255.0) as u8;
-        
-        // Single pixel write (vastly faster than circle)
-        frame[index] = 0xFF;
-        frame[index + 1] = 0xFF;
-        frame[index + 2] = 0xFF;
-        frame[index + 3] = alpha;
     }
-}
+    pub fn dilation(&mut self, frame: &mut [u8]) {
+        let Some((min_x, min_y, max_x, max_y)) = self.dirty_rect else {
+            return;
+        };
+        let width = self.width as usize;
+        let height = self.height as usize;
+        // Copy only dirty region to temp buffer
+        self.temp_buffer.copy_from_slice(frame);
+        let src = &self.temp_buffer;
+        
+        // Process only active region with 1-pixel padding
+        for y in min_y..max_y {
+            for x in min_x..max_x {
+                let idx = (y * width + x) * 4;
+                
+                // Skip if already white
+                if src[idx + 3] == 0xFF {
+                    continue;
+                }
+                
+                // Check 3x3 neighborhood (unrolled for speed)
+                let w = width * 4;
+                let has_neighbor = 
+                    (x > 0 && src[idx - 4 + 3] > 0) ||
+                    (x < width - 1 && src[idx + 4 + 3] > 0) ||
+                    (y > 0 && src[idx - w + 3] > 0) ||
+                    (y < height - 1 && src[idx + w + 3] > 0) ||
+                    (x > 0 && y > 0 && src[idx - w - 4 + 3] > 0) ||
+                    (x < width - 1 && y > 0 && src[idx - w + 4 + 3] > 0) ||
+                    (x > 0 && y < height - 1 && src[idx + w - 4 + 3] > 0) ||
+                    (x < width - 1 && y < height - 1 && src[idx + w + 4 + 3] > 0);
+                
+                if has_neighbor {
+                    frame[idx..idx + 3].copy_from_slice(&[0xCC, 0xCC, 0xCC]);
+                    frame[idx + 3] = 0xCC; // Slightly transparent dilated pixels
+                }
+            }
+        }
+    }
+    // Single-pass accumulation blur (much faster)
+    fn fast_blur_alpha_only(&mut self, frame: &mut [u8]) {
+        let w = self.width as usize;
+        let h = self.height as usize;
+        
+        self.blur_buffer.copy_from_slice(frame);
+        
+        // Only process alpha channel (every 4th byte)
+        for y in 1..h-1 {
+            for x in 1..w-1 {
+                let idx = (y * w + x) * 4 + 3;  // Alpha only
+                
+                if frame[idx] == 0 {  // Skip if already empty
+                    continue;
+                }
+                
+                // Simplified 5-tap cross instead of 9-tap box
+                let sum = frame[idx] as u16 
+                    + frame[idx - 4] as u16  // left
+                    + frame[idx + 4] as u16  // right  
+                    + frame[idx - w*4] as u16  // up
+                    + frame[idx + w*4] as u16; // down
+                
+                frame[idx] = (sum / 5) as u8;
+            }
+        }
+    }
 
+}
