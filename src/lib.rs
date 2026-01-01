@@ -229,10 +229,11 @@ async fn run() {
             } => {
                 use glam::Vec2;
                 let touch_x = touch.location.x as f32 / (3.0 * WIDTH as f32) - 0.5;
+                let touch_y = touch.location.y as f32 / (3.0 * HEIGHT as f32) - 0.5;
                 // update axis motion
                 #[cfg(target_arch = "wasm32")]
                 set_id_text("debug-text", &format!("Touch: {:?}", touch));
-                particles.simulation.acceleration = Vec2::new(touch_x, 0.0);
+                particles.simulation.acceleration = Vec2::new(touch_x,touch_y);
             }
             
 
